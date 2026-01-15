@@ -1,34 +1,77 @@
 @import "tailwindcss";
 
+/* ================================
+   主题变量
+================================ */
+
+/* 默认：暗色主题（一定要有！） */
 :root {
   --bg: #0b1220;
   --bg2: #0f1a33;
-  --card: rgba(255, 255, 255, 0.06);
-  --card2: rgba(255, 255, 255, 0.09);
+
+  --card: rgba(20, 25, 35, 0.78);
+  --card2: rgba(20, 25, 35, 0.62);
+
   --text: #e8eefc;
   --muted: rgba(232, 238, 252, 0.7);
-  --border: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.12);
+
   --link: #93c5fd;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   --radius: 16px;
 }
 
+/* 浅色主题 */
 :root[data-theme="light"] {
   --bg: #f7f8fb;
   --bg2: #ffffff;
+
   --card: #ffffff;
   --card2: #f5f6fa;
+
   --text: #111827;
   --muted: #6b7280;
   --border: #e5e7eb;
+
   --link: #2563eb;
   --shadow: 0 10px 26px rgba(17, 24, 39, 0.1);
 }
+
+/* ================================
+   页面基础（防止 Tailwind / 浏览器乱改）
+================================ */
 
 html,
 body {
   margin: 0;
   padding: 0;
+  min-height: 100%;
+
+  color: var(--text);
+  font-family: ui-serif, "PingFang SC", "Microsoft YaHei", system-ui,
+    -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+
+  /* 锁死底色，防止 background 飘色 */
+  background: var(--bg) !important;
+}
+
+/* 关键：固定层叠上下文，防止背景穿透/混色 */
+body {
+  position: relative;
+  isolation: isolate;
+}
+
+/* ================================
+   稳定的背景层（不会再变红）
+================================ */
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none !important;
+
   background: radial-gradient(
       1200px 600px at 20% 0%,
       rgba(147, 197, 253, 0.18),
@@ -40,19 +83,20 @@ body {
       transparent 60%
     ),
     var(--bg);
-  color: var(--text);
-  font-family: ui-serif, "PingFang SC", "Microsoft YaHei", system-ui,
-    -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
+
+/* 页面内容永远在背景之上 */
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ================================
+   通用基础
+================================ */
 
 * {
   box-sizing: border-box;
-}
-
-.container {
-  max-width: 920px;
-  margin: 28px auto 64px;
-  padding: 0 16px;
 }
 
 a {
@@ -63,28 +107,55 @@ a:hover {
   text-decoration: underline;
 }
 
-.h1 {
-  font-size: 28px;
-  letter-spacing: 0.2px;
-  margin: 10px 0 10px;
+/* ================================
+   布局
+================================ */
+
+.container {
+  max-width: 920px;
+  margin: 28px auto 64px;
+  padding: 0 16px;
 }
 
-.sub {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-}
+/* ================================
+   卡片 / 阅读器
+================================ */
 
 .card {
-  background: linear-gradient(180deg, var(--card), var(--card2));
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  /* ✅ 先给一个兜底色：就算变量挂了也不会红 */
+  /* background-color: var(--card, rgba(20, 25, 35, 0.78)); */
+
+  /* ✅ 再叠加渐变（变量缺失就用 fallback） */
+  /* background-image: linear-gradient(
+    180deg,
+    var(--card, rgba(20, 25, 35, 0.78)),
+    var(--card2, rgba(20, 25, 35, 0.62))
+  ); */
+
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius, 16px);
+  box-shadow: var(--shadow, 0 10px 30px rgba(0, 0, 0, 0.35));
+
+  /* ✅ 防止被混色/滤镜染红 */
+  mix-blend-mode: normal;
+  filter: none;
 }
 
 .cardPad {
   padding: 16px;
 }
+
+/* 小说正文 */
+.reader {
+  white-space: pre-wrap;
+  line-height: 1.95;
+  font-size: 18px;
+  padding: 18px;
+}
+
+/* ================================
+   按钮
+================================ */
 
 .btn {
   display: inline-flex;
@@ -98,24 +169,55 @@ a:hover {
   cursor: pointer;
   font-weight: 600;
 }
+
 :root[data-theme="light"] .btn {
   background: #111827;
-  color: #fff;
+  color: #ffffff;
 }
 
 .btnGhost {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 15px;
+
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
+
   border: 1px solid var(--border);
   cursor: pointer;
+
+  transition: background 0.15s ease, transform 0.05s ease;
 }
+
 .btnGhost:hover {
-  opacity: 0.92;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.btnGhost:active {
+  transform: scale(0.97);
+}
+
+:root[data-theme="light"] .btnGhost {
+  background: rgba(17, 24, 39, 0.04);
+}
+
+/* ================================
+   文字 / 标签
+================================ */
+
+.h1 {
+  font-size: 28px;
+  letter-spacing: 0.2px;
+  margin: 10px 0;
+}
+
+.sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .badge {
@@ -131,12 +233,9 @@ a:hover {
     "Liberation Mono", "Courier New", monospace;
 }
 
-.reader {
-  white-space: pre-wrap;
-  line-height: 1.95;
-  font-size: 18px;
-  padding: 18px;
-}
+/* ================================
+   导航
+================================ */
 
 .nav {
   margin-top: 18px;
@@ -145,14 +244,20 @@ a:hover {
   gap: 12px;
 }
 
+/* ================================
+   移动端适配
+================================ */
+
 @media (max-width: 520px) {
   .h1 {
     font-size: 22px;
   }
+
   .reader {
     font-size: 16px;
     padding: 14px;
   }
+
   .nav {
     flex-direction: column;
   }

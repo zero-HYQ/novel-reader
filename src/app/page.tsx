@@ -1,49 +1,91 @@
-import fs from "fs";
-import path from "path";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import ReaderClient from "./ReaderClient";
 
-function normalizeText(raw: string) {
-  return raw
-    .replace(/^\uFEFF/, "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .trim();
-}
+const LS_NOVEL = "nr_current_novel";
 
-export default function HomePage() {
-  // ✅ 改这里：chapters/novel.txt
-  const filePath = path.join(process.cwd(), "chapters", "novel.txt");
+type NovelOption = { key: string; name: string; file: string };
 
-  if (!fs.existsSync(filePath)) {
-    return (
-      <main className="container">
-        <h1 className="h1">小说阅读器</h1>
-        <div className="card" style={{ padding: 16 }}>
-          <p>
-            未找到 <code>chapters/novel.txt</code>
-          </p>
-          <p>请确认文件路径：项目根目录下的 <code>chapters/novel.txt</code></p>
-        </div>
-      </main>
-    );
-  }
+const NOVELS: NovelOption[] = [
+  { key: "novel", name: "重返狼群 1", file: "/novel.txt" },
+  { key: "novel2", name: "重返狼群 2", file: "/novel2.txt" },
+];
 
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const text = normalizeText(raw);
+export default function ReaderPage() {
+  const sp = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  // 约定：第一行是书名（没有就兜底）
-  const [firstLine, ...rest] = text.split("\n");
-  const title = (firstLine || "").trim() || "未命名小说";
-  const content = rest.join("\n").trim();
+  const urlNovel = sp.get("novel");
+
+  const [novelKey, setNovelKey] = useState<string>("novel");
+  const novel = useMemo(
+    () => NOVELS.find((n) => n.key === novelKey) || NOVELS[0],
+    [novelKey]
+  );
+
+  // 初始化：URL 优先，否则 localStorage 记忆
+  useEffect(() => {
+    if (urlNovel) {
+      setNovelKey(urlNovel);
+      localStorage.setItem(LS_NOVEL, urlNovel);
+      return;
+    }
+
+    const last = localStorage.getItem(LS_NOVEL);
+    if (last) {
+      setNovelKey(last);
+      const params = new URLSearchParams(sp.toString());
+      params.set("novel", last);
+      router.replace(`${pathname}?${params.toString()}`);
+    } else {
+      // 没有记忆，就把默认 novel 写入 URL，方便离线/刷新
+      const params = new URLSearchParams(sp.toString());
+      params.set("novel", "novel");
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlNovel]);
+
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // 加载小说（在线：网络；离线：SW 缓存）
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setContent("");
+
+    fetch(novel.file, { cache: "force-cache" })
+      .then((r) => r.text())
+      .then((txt) => {
+        if (!alive) return;
+        setContent(txt || "");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setContent("（离线/读取失败：请确认 public 下存在对应 txt 文件）");
+      })
+      .finally(() => {
+        if (!alive) return;
+        setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [novel.file]);
 
   return (
-    <main className="container">
-      <header style={{ marginBottom: 12 }}>
-        <h1 className="h1">{title}</h1>
-      </header>
-
-      {/* 固定 id，用于保存滚动/字号/主题 */}
-      <ReaderClient chapterId="novel" content={content} />
-    </main>
+    <div className="container">
+      <ReaderClient
+        chapterId="full"
+        content={loading ? "加载中..." : content}
+        novelKey={novel.key}
+        novelOptions={NOVELS.map(({ key, name }) => ({ key, name }))}
+      />
+    </div>
   );
 }
